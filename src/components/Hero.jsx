@@ -2,148 +2,72 @@ import Typewriter from "typewriter-effect";
 import { curve } from "../assets";
 import Button from "./Button";
 import Section from "./Section";
-import { useEffect, useRef } from "react";
+import { motion } from "framer-motion";
+import { useRef } from "react";
 
 const Hero = () => {
-  const canvasRef = useRef(null);
-  const animationFrameRef = useRef(null);
-  const lastRenderTimeRef = useRef(0);
-  const renderIntervalRef = useRef(1000 / 30); // Target 30 FPS
+  const constraintsRef = useRef(null);
 
-  useEffect(() => {
-    if (!canvasRef.current) return;
-
-    const canvas = canvasRef.current;
-    const gl = canvas.getContext("webgl2");
-    if (!gl) return;
-
-    // Vertex shader source (simplified)
-    const vertexSrc = `#version 300 es
-    precision highp float;
-    in vec2 position;
-    void main() {
-      gl_Position = vec4(position, 0, 1);
-    }`;
-
-    // Fragment shader source (optimized)
-    const fragmentSrc = `#version 300 es
-    precision mediump float;
-    out vec4 O;
-    uniform vec2 resolution;
-    uniform float time;
-    
-    float rnd(vec2 p) {
-      p = fract(p * vec2(12.9898, 78.233));
-      p += dot(p, p + 34.56);
-      return fract(p.x * p.y);
+  // Shooting star animation variants
+  const starVariants = {
+    animate: {
+      x: ["-30vw", "100vw"],
+      y: ["-30vh", "100vh"],
+      rotate: [0, 360],
+      transition: {
+        x: {
+          duration: 8,
+          repeat: Infinity,
+          ease: "linear"
+        },
+        y: {
+          duration: 15,
+          repeat: Infinity,
+          ease: "easeInOut"
+        },
+        rotate: {
+          duration: 20,
+          repeat: Infinity,
+          ease: "linear"
+        }
+      }
     }
-    
-    float noise(vec2 p) {
-      vec2 i = floor(p), f = fract(p), u = f * f * (3. - 2. * f);
-      return mix(
-        mix(rnd(i), rnd(i + vec2(1, 0)), u.x),
-        mix(rnd(i + vec2(0, 1)), rnd(i + 1.), u.x),
-        u.y
+  };
+
+  // Small twinkling stars
+  const renderStars = () => {
+    const stars = [];
+    for (let i = 0; i < 30; i++) {
+      const size = Math.random() * 3 + 1;
+      const duration = Math.random() * 5 + 3;
+      const delay = Math.random() * 5;
+      
+      stars.push(
+        <motion.div
+          key={`star-${i}`}
+          className="absolute rounded-full bg-white"
+          style={{
+            width: `${size}px`,
+            height: `${size}px`,
+            left: `${Math.random() * 100}%`,
+            top: `${Math.random() * 100}%`,
+            opacity: 0.7
+          }}
+          animate={{
+            opacity: [0.3, 0.9, 0.3],
+            scale: [1, 1.3, 1]
+          }}
+          transition={{
+            duration,
+            repeat: Infinity,
+            delay,
+            ease: "easeInOut"
+          }}
+        />
       );
     }
-    
-    float fbm(vec2 p) {
-      float t = 0., a = 0.5;
-      for (int i = 0; i < 3; i++) {
-        t += a * noise(p);
-        p *= 2.;
-        a *= 0.5;
-      }
-      return t;
-    }
-    
-    void main() {
-      vec2 uv = (gl_FragCoord.xy - 0.5 * resolution) / resolution.y;
-      vec3 col = vec3(0);
-      float bg = fbm(vec2(uv.x + time * 0.3, -uv.y));
-      
-      for (float i = 1.; i < 8.; i++) {
-        vec2 p = uv + 0.1 * cos(i * vec2(0.1, 0.8) + time * 0.5);
-        float d = length(p);
-        col += 0.001 / d * (cos(i * vec3(1, 2, 3)) + 1.);
-        col = mix(col, vec3(bg * 0.25, bg * 0.137, bg * 0.05), d);
-      }
-      
-      O = vec4(col, 1);
-    }`;
-
-    // Compile shader
-    function compileShader(gl, source, type) {
-      const shader = gl.createShader(type);
-      gl.shaderSource(shader, source);
-      gl.compileShader(shader);
-      return shader;
-    }
-
-    // Create program
-    const vertexShader = compileShader(gl, vertexSrc, gl.VERTEX_SHADER);
-    const fragmentShader = compileShader(gl, fragmentSrc, gl.FRAGMENT_SHADER);
-    
-    const program = gl.createProgram();
-    gl.attachShader(program, vertexShader);
-    gl.attachShader(program, fragmentShader);
-    gl.linkProgram(program);
-    
-    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-      console.error(gl.getProgramInfoLog(program));
-      return;
-    }
-
-    // Set up geometry
-    const vertices = new Float32Array([-1, 1, -1, -1, 1, 1, 1, -1]);
-    const buffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
-    
-    const position = gl.getAttribLocation(program, "position");
-    gl.enableVertexAttribArray(position);
-    gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
-
-    // Get uniform locations
-    const resolutionLoc = gl.getUniformLocation(program, "resolution");
-    const timeLoc = gl.getUniformLocation(program, "time");
-
-    let startTime = performance.now();
-    
-    function render(now) {
-      // Throttle rendering to ~30 FPS
-      if (now - lastRenderTimeRef.current < renderIntervalRef.current) {
-        animationFrameRef.current = requestAnimationFrame(render);
-        return;
-      }
-      lastRenderTimeRef.current = now;
-      
-      // Update canvas size if needed
-      if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) {
-        canvas.width = canvas.clientWidth;
-        canvas.height = canvas.clientHeight;
-        gl.viewport(0, 0, canvas.width, canvas.height);
-      }
-      
-      // Clear and render
-      gl.useProgram(program);
-      gl.uniform2f(resolutionLoc, canvas.width, canvas.height);
-      gl.uniform1f(timeLoc, (now - startTime) * 0.001);
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-      
-      animationFrameRef.current = requestAnimationFrame(render);
-    }
-    
-    animationFrameRef.current = requestAnimationFrame(render);
-
-    return () => {
-      cancelAnimationFrame(animationFrameRef.current);
-      gl.deleteProgram(program);
-      gl.deleteShader(vertexShader);
-      gl.deleteShader(fragmentShader);
-      gl.deleteBuffer(buffer);
-    };
-  }, []);
+    return stars;
+  };
 
   return (
     <Section
@@ -151,61 +75,60 @@ const Hero = () => {
       customPaddings
       className="pt-[12rem] -mt-[5.25rem] relative overflow-hidden"
     >
+      {/* Background gradient gelap halus */}
       <div
         className="absolute inset-0 z-[-20] pointer-events-none"
-        style={{ background: "linear-gradient(180deg, #121212 0%, #000000 90%)" }}
+        style={{
+          background: "linear-gradient(180deg, #121212 0%, #000000 90%)",
+        }}
       />
 
+      {/* Overlay hitam transparan */}
       <div className="absolute top-0 left-0 w-full h-full bg-black opacity-20 z-[-9]" />
 
-      <canvas
-        ref={canvasRef}
-        className="absolute left-1/2 transform -translate-x-1/2 w-[130vw] h-[130vh] object-cover z-[-10] pointer-events-none
-                   top-[-30%] sm:top-[-30%] md:top-[-20%] lg:top-[-15%] xl:top-[-12%] 2xl:top-[-10%]"
-        style={{ filter: "brightness(0.75)" }}
-      />
+      {/* Shooting star animation with Framer Motion */}
+      <div 
+        ref={constraintsRef}
+        className="absolute inset-0 w-full h-full z-[-10] pointer-events-none overflow-hidden"
+      >
+        {/* Shooting stars */}
+        {[1, 2, 3].map((i) => (
+          <motion.div
+            key={`shooting-${i}`}
+            className="absolute bg-gradient-to-r from-blue-400 to-purple-600 rounded-full"
+            style={{
+              width: `${Math.random() * 4 + 2}px`,
+              height: `${Math.random() * 1 + 0.5}px`,
+              left: `${Math.random() * 20}%`,
+              top: `${Math.random() * 20}%`,
+              filter: "blur(1px)",
+              opacity: 0.8
+            }}
+            variants={starVariants}
+            initial="animate"
+            animate="animate"
+            custom={i}
+          />
+        ))}
 
-      <style>
-        {`
-          canvas {
-            top: -30%;
-          }
-          @media (max-width: 640px) {
-            canvas {
-              top: -50% !important;
-              filter: brightness(0.9) !important;
-            }
-          }
-          @media (min-width: 768px) {
-            canvas {
-              top: -20% !important;
-            }
-          }
-          @media (min-width: 1024px) {
-            canvas {
-              top: -15% !important;
-            }
-          }
-          @media (min-width: 1280px) {
-            canvas {
-              top: -12% !important;
-            }
-          }
-          @media (min-width: 1920px) {
-            canvas {
-              top: -12% !important;
-              transform: translateX(-50%) scale(1.1);
-            }
-          }
-          @media (min-width: 2560px) {
-            canvas {
-              top: -10% !important;
-              transform: translateX(-50%) scale(1.25);
-            }
-          }
-        `}
-      </style>
+        {/* Twinkling stars */}
+        {renderStars()}
 
+        {/* Glow effect */}
+        <motion.div 
+          className="absolute inset-0 bg-gradient-to-b from-blue-900/10 to-purple-900/10"
+          animate={{
+            opacity: [0.3, 0.5, 0.3]
+          }}
+          transition={{
+            duration: 10,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        />
+      </div>
+
+      {/* Konten utama */}
       <div className="container relative z-10">
         <div className="relative max-w-[62rem] mx-auto text-center mb-[4rem] md:mb-20 lg:mb-[6rem]">
           <h1 className="h1 mb-6 text-white">
@@ -252,9 +175,12 @@ const Hero = () => {
         </div>
       </div>
 
+      {/* Gradient transisi ke hitam pekat */}
       <div
         className="absolute bottom-0 left-0 w-full h-[12rem] z-[-5]"
-        style={{ background: "linear-gradient(to bottom, transparent, #000)" }}
+        style={{
+          background: "linear-gradient(to bottom, transparent, #000)",
+        }}
       />
     </Section>
   );
