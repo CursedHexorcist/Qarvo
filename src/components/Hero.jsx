@@ -1,65 +1,38 @@
-import { useRef, useEffect } from "react";
 import Typewriter from "typewriter-effect";
+import { motion, useAnimation } from "framer-motion";
+import { useEffect } from "react";
 import { curve } from "../assets";
 import Button from "./Button";
 import Section from "./Section";
-import { motion } from "framer-motion";
 
 const Hero = () => {
-  const containerRef = useRef(null);
-  const starCount = 100;
-  const shootingStarCount = 5;
+  const controls = useAnimation();
 
-  // Generate random stars
-  const generateStars = () => {
-    const stars = [];
-    for (let i = 0; i < starCount; i++) {
-      stars.push({
-        id: `star-${i}`,
-        size: Math.random() * 3 + 1,
-        left: Math.random() * 100,
-        top: Math.random() * 100,
-        opacity: Math.random() * 0.7 + 0.3,
-        duration: Math.random() * 10 + 5,
-        delay: Math.random() * 10
+  useEffect(() => {
+    controls.start({
+      opacity: [0, 1, 0.8],
+      scale: [0.9, 1.05, 1],
+      transition: { duration: 4, repeat: Infinity, repeatType: "reverse" }
+    });
+
+    // Lightning effect
+    const interval = setInterval(() => {
+      controls.start({
+        x: [0, -5, 5, -3, 3, 0],
+        transition: { duration: 0.5 }
       });
-    }
-    return stars;
-  };
+    }, 3000);
 
-  // Generate shooting stars
-  const generateShootingStars = () => {
-    const stars = [];
-    for (let i = 0; i < shootingStarCount; i++) {
-      const startX = Math.random() * 20;
-      const startY = Math.random() * 20;
-      
-      stars.push({
-        id: `shooting-${i}`,
-        startX,
-        startY,
-        endX: startX + 80 + Math.random() * 20,
-        endY: startY + 80 + Math.random() * 20,
-        size: Math.random() * 2 + 1,
-        duration: Math.random() * 8 + 5,
-        delay: Math.random() * 15,
-        rotate: Math.random() * 360
-      });
-    }
-    return stars;
-  };
-
-  const stars = generateStars();
-  const shootingStars = generateShootingStars();
+    return () => clearInterval(interval);
+  }, [controls]);
 
   return (
     <Section
       id="hero"
       customPaddings
       className="pt-[12rem] -mt-[5.25rem] relative overflow-hidden"
-      ref={containerRef}
     >
-      {/* Background gradient */}
+      {/* Background gradient gelap halus */}
       <div
         className="absolute inset-0 z-[-20] pointer-events-none"
         style={{
@@ -67,97 +40,149 @@ const Hero = () => {
         }}
       />
 
-      {/* Static stars */}
-      {stars.map((star) => (
+      {/* Dimensional Rift Container */}
+      <div className="absolute inset-0 z-[-10] overflow-hidden">
+        {/* Base Rift Effect */}
         <motion.div
-          key={star.id}
-          className="absolute rounded-full bg-white"
-          style={{
-            width: `${star.size}px`,
-            height: `${star.size}px`,
-            left: `${star.left}%`,
-            top: `${star.top}%`,
-            opacity: star.opacity
-          }}
-          animate={{
-            opacity: [star.opacity * 0.5, star.opacity, star.opacity * 0.5],
-            scale: [1, 1.2, 1]
-          }}
-          transition={{
-            duration: star.duration,
-            repeat: Infinity,
-            delay: star.delay,
-            ease: "easeInOut"
-          }}
-        />
-      ))}
+          className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[130vw] h-[130vh]"
+          initial={{ opacity: 0 }}
+          animate={controls}
+        >
+          {/* Main Rift - Central Tear */}
+          <motion.div
+            className="absolute inset-0"
+            style={{
+              background: `
+                radial-gradient(
+                  circle at center,
+                  rgba(98, 0, 234, 0.15) 0%,
+                  rgba(98, 0, 234, 0) 70%
+                )`,
+              clipPath: `
+                polygon(
+                  50% 50%,
+                  45% 30%,
+                  55% 30%,
+                  60% 40%,
+                  65% 35%,
+                  70% 45%,
+                  75% 40%,
+                  80% 50%,
+                  75% 60%,
+                  70% 55%,
+                  65% 65%,
+                  60% 60%,
+                  55% 70%,
+                  45% 70%,
+                  40% 60%,
+                  35% 65%,
+                  30% 55%,
+                  25% 60%,
+                  20% 50%,
+                  25% 40%,
+                  30% 45%,
+                  35% 35%,
+                  40% 40%,
+                  45% 30%
+                )`
+            }}
+            animate={{
+              rotate: [0, 360],
+              scale: [1, 1.1, 1],
+              transition: {
+                duration: 20,
+                repeat: Infinity,
+                ease: "linear"
+              }
+            }}
+          />
 
-      {/* Shooting stars */}
-      {shootingStars.map((star) => (
-        <motion.div
-          key={star.id}
-          className="absolute bg-gradient-to-r from-blue-400 to-purple-600 rounded-full"
-          style={{
-            width: `${star.size * 4}px`,
-            height: `${star.size}px`,
-            left: `${star.startX}%`,
-            top: `${star.startY}%`,
-            filter: "blur(1px)",
-            opacity: 0.8,
-            rotate: `${star.rotate}deg`
-          }}
-          initial={{
-            x: 0,
-            y: 0,
-            opacity: 0
-          }}
-          animate={{
-            x: `${star.endX - star.startX}vw`,
-            y: `${star.endY - star.startY}vh`,
-            opacity: [0, 0.8, 0],
-            rotate: star.rotate + 360
-          }}
-          transition={{
-            x: {
-              duration: star.duration,
-              repeat: Infinity,
-              repeatDelay: star.delay,
-              ease: "linear"
-            },
-            y: {
-              duration: star.duration * 1.5,
-              repeat: Infinity,
-              repeatDelay: star.delay,
-              ease: "easeInOut"
-            },
-            opacity: {
-              duration: star.duration * 0.3,
-              repeat: Infinity,
-              repeatDelay: star.delay,
-              ease: "easeInOut"
-            },
-            rotate: {
-              duration: star.duration * 2,
-              repeat: Infinity,
-              repeatDelay: star.delay,
-              ease: "linear"
-            }
-          }}
-        />
-      ))}
+          {/* Crack Lines */}
+          {[...Array(8)].map((_, i) => (
+            <motion.div
+              key={i}
+              className="absolute bg-purple-500"
+              style={{
+                height: "2px",
+                width: `${Math.random() * 20 + 10}%`,
+                left: `${Math.random() * 80 + 10}%`,
+                top: `${Math.random() * 80 + 10}%`,
+                transformOrigin: "center",
+                boxShadow: "0 0 10px 1px rgba(255, 255, 255, 0.7)",
+                opacity: 0.7
+              }}
+              initial={{ opacity: 0 }}
+              animate={{
+                opacity: [0, 0.7, 0],
+                width: [`${Math.random() * 10 + 5}%`, `${Math.random() * 25 + 15}%`],
+                transition: {
+                  duration: Math.random() * 3 + 2,
+                  delay: Math.random() * 2,
+                  repeat: Infinity,
+                  repeatType: "reverse"
+                }
+              }}
+            />
+          ))}
 
-      {/* Glow effect */}
-      <motion.div 
-        className="absolute inset-0 bg-gradient-to-b from-blue-900/10 to-purple-900/10"
-        animate={{
-          opacity: [0.3, 0.5, 0.3]
-        }}
-        transition={{
-          duration: 10,
-          repeat: Infinity,
-          ease: "easeInOut"
-        }}
-      />
+          {/* Floating Multiverse Portals */}
+          {[...Array(5)].map((_, i) => (
+            <motion.div
+              key={i}
+              className="absolute rounded-full"
+              style={{
+                width: `${Math.random() * 10 + 5}%`,
+                height: `${Math.random() * 10 + 5}%`,
+                left: `${Math.random() * 80 + 10}%`,
+                top: `${Math.random() * 80 + 10}%`,
+                background: `radial-gradient(
+                  circle,
+                  hsla(${Math.random() * 60 + 200}, 80%, 60%, 0.8) 0%,
+                  hsla(${Math.random() * 60 + 200}, 80%, 40%, 0.2) 70%
+                )`,
+                filter: "blur(1px)",
+                border: "1px solid rgba(255, 255, 255, 0.3)"
+              }}
+              animate={{
+                scale: [1, 1.2, 1],
+                rotate: [0, 180],
+                opacity: [0.3, 0.7, 0.3],
+                transition: {
+                  duration: Math.random() * 10 + 10,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }
+              }}
+            />
+          ))}
+
+          {/* Lightning Effects */}
+          {[...Array(4)].map((_, i) => (
+            <motion.div
+              key={i}
+              className="absolute bg-white"
+              style={{
+                height: "1px",
+                width: "0%",
+                left: `${Math.random() * 80 + 10}%`,
+                top: `${Math.random() * 80 + 10}%`,
+                filter: "blur(0.5px)",
+                opacity: 0
+              }}
+              animate={{
+                width: ["0%", `${Math.random() * 15 + 5}%`, "0%"],
+                opacity: [0, 0.8, 0],
+                transition: {
+                  duration: 0.3,
+                  delay: Math.random() * 5,
+                  repeat: Infinity,
+                  repeatDelay: Math.random() * 5
+                }
+              }}
+            />
+          ))}
+        </motion.div>
+      </div>
 
       {/* Konten utama */}
       <div className="container relative z-10">
@@ -177,8 +202,6 @@ const Hero = () => {
                   ],
                   autoStart: true,
                   loop: true,
-                  delay: 50,
-                  deleteSpeed: 30
                 }}
               />
             </span>
@@ -194,7 +217,6 @@ const Hero = () => {
                 width={624}
                 height={28}
                 alt="Curve"
-                loading="lazy"
               />
             </span>
             .network
