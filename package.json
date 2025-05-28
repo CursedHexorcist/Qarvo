@@ -13,7 +13,7 @@
     "@react-three/drei": "^10.0.8",
     "@react-three/fiber": "^9.1.2",
     "@react-three/postprocessing": "^3.0.4",
-    "firebase": "^11.8.0",
+    "firebase": "^11.8.1",
     "framer-motion": "^12.10.5",
     "gsap": "^3.13.0",
     "lucide-react": "^0.511.0",
