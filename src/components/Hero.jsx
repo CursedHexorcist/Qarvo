@@ -5,187 +5,61 @@ import Section from "./Section";
 import { useEffect, useRef } from "react";
 
 const Hero = () => {
-  const canvasRef = useRef(null);
-  const animationFrameRef = useRef(null);
+  const starsRef = useRef(null);
 
   useEffect(() => {
-    if (!canvasRef.current) return;
+    // Create stars with CSS instead of WebGL
+    const container = starsRef.current;
+    if (!container) return;
 
-    const canvas = canvasRef.current;
-    const gl = canvas.getContext("webgl2");
-    if (!gl) return;
+    // Clear previous stars
+    container.innerHTML = '';
 
-    // Vertex shader source (simplified)
-    const vertexSrc = `#version 300 es
-    precision highp float;
-    in vec4 position;
-    void main() {
-      gl_Position = position;
-    }`;
-
-    // Fragment shader source (optimized with requested colors)
-    const fragmentSrc = `#version 300 es
-    precision highp float;
-    out vec4 O;
-    uniform vec2 resolution;
-    uniform float time;
-    
-    // Optimized noise functions
-    float hash(vec2 p) {
-      p = fract(p * vec2(12.9898, 78.233));
-      p += dot(p, p + 34.56);
-      return fract(p.x * p.y);
-    }
-    
-    float noise(vec2 p) {
-      vec2 i = floor(p), f = fract(p);
-      f = f * f * (3.0 - 2.0 * f);
-      return mix(
-        mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),
-        mix(hash(i + vec2(0.0, 1.0)), hash(i + 1.0), f.x),
-        f.y
-      );
-    }
-    
-    // Simplified cloud generation with purple colors
-    float clouds(vec2 p) {
-      float f = 0.0;
-      p *= 0.5;
-      mat2 m = mat2(1.6, 1.2, -1.2, 1.6);
-      f += 0.5 * noise(p); p *= m * 2.02;
-      f += 0.25 * noise(p); p *= m * 2.03;
-      f += 0.125 * noise(p);
-      return f;
-    }
-    
-    void main(void) {
-      vec2 uv = (gl_FragCoord.xy - 0.5 * resolution) / min(resolution.x, resolution.y);
-      vec3 col = vec3(0.0);
+    // Create stars
+    const starCount = 100;
+    for (let i = 0; i < starCount; i++) {
+      const star = document.createElement('div');
+      star.className = 'star';
       
-      // Background gradient: black to blue
-      float grad = smoothstep(-0.8, 0.8, uv.y);
-      col = mix(vec3(0.0, 0.0, 0.1), vec3(0.0, 0.05, 0.2), grad);
+      // Random positioning
+      star.style.left = `${Math.random() * 100}%`;
+      star.style.top = `${Math.random() * 100}%`;
       
-      // Purple clouds with requested colors
-      float c = clouds(uv * 2.0 + time * 0.1);
-      vec3 cloudColor = mix(
-        mix(vec3(0.2, 0.0, 0.3), vec3(0.3, 0.0, 0.4), c), // dark purple to purple
-        vec3(0.4, 0.1, 0.5), // dark amethyst
-        c * 0.5
-      );
-      col = mix(col, cloudColor, c * 0.7);
+      // Random size
+      const size = Math.random() * 3;
+      star.style.width = `${size}px`;
+      star.style.height = `${size}px`;
       
-      // Stars with white core and purple aura (optimized)
-      vec2 starUV = uv * 10.0;
-      float star = hash(floor(starUV + 0.5) * 0.8 + 0.2;
-      star = pow(star, 50.0);
-      vec2 starPos = fract(starUV) - 0.5;
-      float starDist = length(starPos);
+      // Random animation delay
+      star.style.animationDelay = `${Math.random() * 5}s`;
       
-      // White star core
-      float starCore = smoothstep(0.1, 0.0, starDist) * star;
-      col += vec3(starCore);
-      
-      // Purple aura
-      float aura = smoothstep(0.3, 0.0, starDist) * star * 0.5;
-      col += vec3(0.5, 0.0, 0.7) * aura;
-      
-      // Rare shooting stars (reduced frequency)
-      if (hash(vec2(time * 0.01)) > 0.995) {
-        float t = fract(time * 0.5 + hash(uv.x));
-        vec2 dir = normalize(vec2(1.0, 0.3));
-        float d = dot(uv - dir * t, dir);
-        float trail = exp(-abs(d) * 20.0) * exp(-t * 5.0);
-        col += vec3(0.8, 0.8, 1.0) * trail * 0.8;
-      }
-      
-      O = vec4(col, 1.0);
-    }`;
-
-    // Compile shader
-    function compileShader(gl, source, type) {
-      const shader = gl.createShader(type);
-      gl.shaderSource(shader, source);
-      gl.compileShader(shader);
-      
-      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-        console.error(gl.getShaderInfoLog(shader));
-        return null;
-      }
-      return shader;
+      container.appendChild(star);
     }
 
-    // Create program
-    const vertexShader = compileShader(gl, vertexSrc, gl.VERTEX_SHADER);
-    const fragmentShader = compileShader(gl, fragmentSrc, gl.FRAGMENT_SHADER);
-    
-    const program = gl.createProgram();
-    gl.attachShader(program, vertexShader);
-    gl.attachShader(program, fragmentShader);
-    gl.linkProgram(program);
-    
-    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-      console.error(gl.getProgramInfoLog(program));
-      return;
+    // Create occasional shooting stars
+    function createShootingStar() {
+      if (!container) return;
+      
+      const shootingStar = document.createElement('div');
+      shootingStar.className = 'shooting-star';
+      
+      // Random positioning
+      shootingStar.style.left = `${Math.random() * 100}%`;
+      shootingStar.style.top = `${Math.random() * 50}%`;
+      
+      container.appendChild(shootingStar);
+      
+      // Remove after animation completes
+      setTimeout(() => {
+        shootingStar.remove();
+      }, 3000);
     }
 
-    // Set up geometry
-    const vertices = new Float32Array([-1, 1, -1, -1, 1, 1, 1, -1]);
-    const buffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
-    
-    const position = gl.getAttribLocation(program, "position");
-    gl.enableVertexAttribArray(position);
-    gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
-
-    // Get uniform locations
-    const resolutionLoc = gl.getUniformLocation(program, "resolution");
-    const timeLoc = gl.getUniformLocation(program, "time");
-
-    let startTime = performance.now();
-    let lastTime = 0;
-    const frameInterval = 1000 / 30; // Target 30 FPS to reduce lag
-    
-    function render(now) {
-      // Throttle rendering to reduce lag
-      if (now - lastTime < frameInterval) {
-        animationFrameRef.current = requestAnimationFrame(render);
-        return;
-      }
-      lastTime = now;
-      
-      // Update canvas size if needed
-      if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) {
-        canvas.width = canvas.clientWidth;
-        canvas.height = canvas.clientHeight;
-        gl.viewport(0, 0, canvas.width, canvas.height);
-      }
-      
-      // Clear and render
-      gl.clearColor(0, 0, 0, 1);
-      gl.clear(gl.COLOR_BUFFER_BIT);
-      gl.useProgram(program);
-      
-      // Set uniforms
-      gl.uniform2f(resolutionLoc, canvas.width, canvas.height);
-      gl.uniform1f(timeLoc, (now - startTime) * 0.001);
-      
-      // Draw
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-      
-      animationFrameRef.current = requestAnimationFrame(render);
-    }
-    
-    animationFrameRef.current = requestAnimationFrame(render);
+    // Create shooting stars at intervals
+    const shootingStarInterval = setInterval(createShootingStar, 3000);
 
     return () => {
-      // Clean up
-      cancelAnimationFrame(animationFrameRef.current);
-      gl.deleteProgram(program);
-      gl.deleteShader(vertexShader);
-      gl.deleteShader(fragmentShader);
-      gl.deleteBuffer(buffer);
+      clearInterval(shootingStarInterval);
     };
   }, []);
 
@@ -195,49 +69,72 @@ const Hero = () => {
       customPaddings
       className="pt-[12rem] -mt-[5.25rem] relative overflow-hidden"
     >
-      {/* Background gradient gelap halus */}
+      {/* Background gradient */}
       <div
         className="absolute inset-0 z-[-20] pointer-events-none"
         style={{
-          background: "linear-gradient(180deg, #121212 0%, #000000 90%)",
+          background: "linear-gradient(180deg, #000000 0%, #0a0a2a 100%)",
         }}
       />
 
-      {/* Overlay hitam transparan */}
-      <div className="absolute top-0 left-0 w-full h-full bg-black opacity-20 z-[-9]" />
-
-      {/* Optimized star animation */}
-      <canvas
-        ref={canvasRef}
-        className="absolute left-1/2 transform -translate-x-1/2 w-[130vw] h-[130vh] object-cover z-[-10] pointer-events-none
-                   top-[-30%] sm:top-[-30%] md:top-[-20%] lg:top-[-15%] xl:top-[-12%] 2xl:top-[-10%]"
+      {/* Star container */}
+      <div 
+        ref={starsRef}
+        className="absolute inset-0 z-[-10] overflow-hidden"
         style={{
-          filter: "brightness(0.8)",
+          background: "radial-gradient(ellipse at center, rgba(90, 0, 150, 0.2) 0%, rgba(0, 0, 20, 0.8) 100%)"
         }}
       />
 
-      <style>
-        {`
-          @media (max-width: 640px) {
-            canvas {
-              top: -50% !important;
-              filter: brightness(0.9) !important;
-            }
+      {/* Cloud overlay */}
+      <div 
+        className="absolute inset-0 z-[-9] opacity-30"
+        style={{
+          background: `
+            radial-gradient(circle at 20% 30%, rgba(80, 0, 120, 0.5) 0%, transparent 40%),
+            radial-gradient(circle at 80% 60%, rgba(100, 0, 150, 0.5) 0%, transparent 40%),
+            radial-gradient(circle at 40% 70%, rgba(60, 0, 100, 0.5) 0%, transparent 40%)
+          `,
+        }}
+      />
+
+      <style jsx>{`
+        .star {
+          position: absolute;
+          background-color: white;
+          border-radius: 50%;
+          animation: twinkle 5s infinite;
+          box-shadow: 0 0 5px 1px rgba(150, 0, 255, 0.8);
+        }
+        
+        .shooting-star {
+          position: absolute;
+          width: 60px;
+          height: 2px;
+          background: linear-gradient(90deg, rgba(255,255,255,0) 0%, white 50%, rgba(150, 0, 255, 0.8) 100%);
+          animation: shoot 3s linear;
+          transform: rotate(-45deg);
+          transform-origin: left;
+        }
+        
+        @keyframes twinkle {
+          0%, 100% { opacity: 0.3; }
+          50% { opacity: 1; }
+        }
+        
+        @keyframes shoot {
+          0% { 
+            transform: translateX(0) translateY(0) rotate(-45deg);
+            opacity: 0;
           }
-          @media (min-width: 1920px) {
-            canvas {
-              top: -12% !important;
-              transform: translateX(-50%) scale(1.1);
-            }
+          10% { opacity: 1; }
+          90% { opacity: 1; }
+          100% { 
+            transform: translateX(300px) translateY(300px) rotate(-45deg);
+            opacity: 0;
           }
-          @media (min-width: 2560px) {
-            canvas {
-              top: -10% !important;
-              transform: translateX(-50%) scale(1.25);
-            }
-          }
-        `}
-      </style>
+        }
+      `}</style>
 
       {/* Konten utama */}
       <div className="container relative z-10">
@@ -283,7 +180,7 @@ const Hero = () => {
         </div>
       </div>
 
-      {/* Gradient transisi ke hitam pekat */}
+      {/* Gradient transisi */}
       <div
         className="absolute bottom-0 left-0 w-full h-[12rem] z-[-5]"
         style={{
