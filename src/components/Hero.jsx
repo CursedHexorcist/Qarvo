@@ -6,7 +6,6 @@ import { useEffect, useRef } from "react";
 
 const Hero = () => {
   const canvasRef = useRef(null);
-  const animationRef = useRef(null);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -15,75 +14,87 @@ const Hero = () => {
     const gl = canvas.getContext("webgl2");
     if (!gl) return;
 
-    // Optimized vertex shader
+    // Vertex shader source
     const vertexSrc = `#version 300 es
+    precision highp float;
     in vec4 position;
     void main() {
       gl_Position = position;
     }`;
 
-    // Simplified fragment shader with purple color scheme
+    // Fragment shader source (optimized shooting star animation)
     const fragmentSrc = `#version 300 es
     precision highp float;
     out vec4 O;
     uniform vec2 resolution;
     uniform float time;
     
-    // Optimized random function
-    float rand(vec2 p) {
-      return fract(sin(dot(p, vec2(12.9898, 78.233)) * 43758.5453);
+    // Optimized noise functions
+    float rnd(vec2 p) {
+      p = fract(p * vec2(12.9898, 78.233));
+      p += dot(p, p + 34.56);
+      return fract(p.x * p.y);
     }
     
-    // Simplified star field
-    void main() {
-      vec2 uv = (gl_FragCoord.xy - 0.5 * resolution.xy) / min(resolution.x, resolution.y);
-      vec3 col = vec3(0.0);
+    float noise(in vec2 p) {
+      vec2 i = floor(p), f = fract(p), u = f * f * (3. - 2. * f);
+      return mix(mix(rnd(i), rnd(i + vec2(1, 0)), u.x),
+                mix(rnd(i + vec2(0, 1)), rnd(i + 1.), u.x), u.y);
+    }
+    
+    float fbm(vec2 p) {
+      float t = 0., a = 0.5; 
+      for (int i = 0; i < 3; i++) {
+        t += a * noise(p);
+        p *= 2.;
+        a *= 0.5;
+      }
+      return t;
+    }
+    
+    float clouds(vec2 p) {
+      float t = 0.;
+      for (float i = 0.; i < 2.; i++) {
+        t = mix(t, fbm(i * 5. + p), fbm(i * 3. + p));
+        p *= 1.5;
+      }
+      return t;
+    }
+    
+    void main(void) {
+      vec2 uv = (gl_FragCoord.xy - .5 * resolution) / min(resolution.x, resolution.y);
+      vec3 col = vec3(0);
       
-      // Base purple color
-      vec3 baseColor = vec3(0.3, 0.1, 0.4);
-      vec3 starColor = vec3(0.8, 0.6, 1.0);
+      // Purple cloud background (dark purple + amethyst mix)
+      float bg = clouds(uv * 1.5 + time * 0.1);
+      vec3 cloudColor = mix(
+        mix(vec3(0.25, 0.1, 0.3), vec3(0.15, 0.05, 0.2), bg),
+        vec3(0.35, 0.15, 0.45),
+        bg * 0.7
+      );
+      col = cloudColor;
       
-      // Star field
-      for (int i = 0; i < 50; i++) {
-        vec2 starPos = vec2(
-          rand(vec2(float(i) * 0.137, 0.0)) * 2.0 - 1.0,
-          rand(vec2(float(i) * 0.231, 0.0)) * 2.0 - 1.0
+      // Simplified stars with purple aura
+      for (float i = 1.; i < 8.; i++) {
+        vec2 p = uv * (1.0 + 0.1 * sin(time * 0.2 + i));
+        float d = length(p);
+        float star = 0.01 / d * (0.7 + 0.3 * sin(time * 0.5 + i));
+        
+        // White star core with purple aura
+        vec3 starColor = mix(
+          vec3(1.0), // White core
+          vec3(0.7, 0.3, 1.0), // Purple aura
+          smoothstep(0.01, 0.1, d)
         );
         
-        float starSize = rand(vec2(float(i) * 0.371, 0.0)) * 0.002;
-        float starBrightness = rand(vec2(float(i) * 0.523, 0.0));
-        
-        // Animate some stars
-        if (i < 5) {
-          starPos.x += sin(time * 0.5 + float(i) * 1.5) * 0.5;
-          starPos.y += cos(time * 0.3 + float(i) * 2.0) * 0.3;
-        }
-        
-        float dist = length(uv - starPos);
-        col += starColor * starBrightness * (0.01 / (dist + starSize)) * smoothstep(0.8, 0.0, dist);
+        col += star * starColor * (0.5 + 0.5 * noise(vec2(i, i)));
       }
       
-      // Add subtle pulsing nebula effect
-      float nebula = 0.0;
-      for (int i = 1; i <= 3; i++) {
-        float fi = float(i);
-        nebula += 0.4 / fi * sin(fi * 3.0 * uv.x + time * 0.2 + fi) * 
-                  cos(fi * 2.0 * uv.y + time * 0.1 + fi);
-      }
-      nebula = max(0.0, nebula * 0.3);
-      
-      // Combine colors
-      col = mix(baseColor, col + nebula * vec3(0.5, 0.3, 0.7), 0.8);
-      
-      // Vignette effect
-      float vignette = 1.0 - smoothstep(0.5, 1.2, length(uv));
-      col *= vignette * vignette;
-      
-      O = vec4(col, 1.0);
+      O = vec4(col, 1);
     }`;
 
-    // Compile shader function
-    const compileShader = (gl, source, type) => {
+    // Compile shader
+    function compileShader(gl, source, type) {
       const shader = gl.createShader(type);
       gl.shaderSource(shader, source);
       gl.compileShader(shader);
@@ -93,7 +104,7 @@ const Hero = () => {
         return null;
       }
       return shader;
-    };
+    }
 
     // Create program
     const vertexShader = compileShader(gl, vertexSrc, gl.VERTEX_SHADER);
@@ -124,8 +135,18 @@ const Hero = () => {
     const timeLoc = gl.getUniformLocation(program, "time");
 
     let startTime = performance.now();
+    let lastFrameTime = startTime;
+    const targetFPS = 30; // Lower target FPS for reduced animation intensity
+    const frameDelay = 1000 / targetFPS;
     
-    const render = (now) => {
+    function render(now) {
+      // Throttle frame rate
+      if (now - lastFrameTime < frameDelay) {
+        requestAnimationFrame(render);
+        return;
+      }
+      lastFrameTime = now;
+      
       // Update canvas size if needed
       if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) {
         canvas.width = canvas.clientWidth;
@@ -145,14 +166,13 @@ const Hero = () => {
       // Draw
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       
-      animationRef.current = requestAnimationFrame(render);
-    };
+      requestAnimationFrame(render);
+    }
     
-    animationRef.current = requestAnimationFrame(render);
+    requestAnimationFrame(render);
 
     return () => {
       // Clean up
-      cancelAnimationFrame(animationRef.current);
       gl.deleteProgram(program);
       gl.deleteShader(vertexShader);
       gl.deleteShader(fragmentShader);
@@ -177,11 +197,14 @@ const Hero = () => {
       {/* Overlay hitam transparan */}
       <div className="absolute top-0 left-0 w-full h-full bg-black opacity-20 z-[-9]" />
 
-      {/* Optimized star animation */}
+      {/* Optimized shooting star animation */}
       <canvas
         ref={canvasRef}
         className="absolute left-1/2 transform -translate-x-1/2 w-[130vw] h-[130vh] object-cover z-[-10] pointer-events-none
                    top-[-30%] sm:top-[-30%] md:top-[-20%] lg:top-[-15%] xl:top-[-12%] 2xl:top-[-10%]"
+        style={{
+          filter: "brightness(0.8)",
+        }}
       />
 
       <style>
@@ -189,6 +212,7 @@ const Hero = () => {
           @media (max-width: 640px) {
             canvas {
               top: -50% !important;
+              filter: brightness(0.9) !important;
             }
           }
           @media (min-width: 1920px) {
