@@ -6,201 +6,156 @@ import Section from "./Section";
 import { motion } from "framer-motion";
 
 const Hero = () => {
-  const canvasRef = useRef(null);
-  const glRef = useRef(null);
-  const programRef = useRef(null);
-  const timeRef = useRef(0);
-  const animationRef = useRef(null);
-  const mousePosRef = useRef([0, 0]);
+  const containerRef = useRef(null);
+  const starCount = 100;
+  const shootingStarCount = 5;
 
-  useEffect(() => {
-    // Initialize WebGL
-    const canvas = canvasRef.current;
-    const gl = canvas.getContext("webgl2");
-    if (!gl) return;
-
-    glRef.current = gl;
-
-    // Vertex shader source
-    const vsSource = `#version 300 es
-    precision highp float;
-    in vec4 position;
-    void main() {
-      gl_Position = position;
-    }`;
-
-    // Fragment shader source (simplified version of the original)
-    const fsSource = `#version 300 es
-    precision highp float;
-    out vec4 O;
-    uniform vec2 resolution;
-    uniform float time;
-    uniform vec2 mouse;
-    
-    // Returns a pseudo random number for a given point (white noise)
-    float rnd(vec2 p) {
-      p = fract(p * vec2(12.9898, 78.233));
-      p += dot(p, p + 34.56);
-      return fract(p.x * p.y);
+  // Generate random stars
+  const generateStars = () => {
+    const stars = [];
+    for (let i = 0; i < starCount; i++) {
+      stars.push({
+        id: `star-${i}`,
+        size: Math.random() * 3 + 1,
+        left: Math.random() * 100,
+        top: Math.random() * 100,
+        opacity: Math.random() * 0.7 + 0.3,
+        duration: Math.random() * 10 + 5,
+        delay: Math.random() * 10
+      });
     }
-    
-    // Returns a pseudo random number for a given point (value noise)
-    float noise(in vec2 p) {
-      vec2 i = floor(p), f = fract(p), u = f * f * (3.0 - 2.0 * f);
-      float a = rnd(i), b = rnd(i + vec2(1.0, 0.0));
-      float c = rnd(i + vec2(0.0, 1.0)), d = rnd(i + 1.0);
-      return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+    return stars;
+  };
+
+  // Generate shooting stars
+  const generateShootingStars = () => {
+    const stars = [];
+    for (let i = 0; i < shootingStarCount; i++) {
+      const startX = Math.random() * 20;
+      const startY = Math.random() * 20;
+      
+      stars.push({
+        id: `shooting-${i}`,
+        startX,
+        startY,
+        endX: startX + 80 + Math.random() * 20,
+        endY: startY + 80 + Math.random() * 20,
+        size: Math.random() * 2 + 1,
+        duration: Math.random() * 8 + 5,
+        delay: Math.random() * 15,
+        rotate: Math.random() * 360
+      });
     }
-    
-    // Returns a pseudo random number for a given point (fractal noise)
-    float fbm(vec2 p) {
-      float t = 0.0, a = 1.0; mat2 m = mat2(1.0, -0.5, 0.2, 1.2);
-      for (int i = 0; i < 5; i++) {
-        t += a * noise(p);
-        p *= 2.0 * m;
-        a *= 0.5;
-      }
-      return t;
-    }
-    
-    float clouds(vec2 p) {
-      float d = 1.0, t = 0.0;
-      for (float i = 0.0; i < 3.0; i++) {
-        float a = d * fbm(i * 10.0 + p.x * 0.2 + 0.2 * (1.0 + i) * p.y + d + i * i + p);
-        t = mix(t, d, a);
-        d = a;
-        p *= 2.0 / (i + 1.0);
-      }
-      return t;
-    }
-    
-    void main() {
-      vec2 uv = (gl_FragCoord.xy - 0.5 * resolution) / min(resolution.x, resolution.y);
-      vec2 st = uv * vec2(2.0, 1.0);
-      vec3 col = vec3(0.0);
-      float bg = clouds(vec2(st.x + time * 0.5, -st.y));
-      
-      uv *= 1.0 - 0.3 * (sin(time * 0.2) * 0.5 + 0.5);
-      
-      for (float i = 1.0; i < 12.0; i++) {
-        uv += 0.1 * cos(i * vec2(0.1 + 0.01 * i, 0.8) + i * i + time * 0.5 + 0.1 * uv.x);
-        vec2 p = uv;
-        float d = length(p);
-        col += 0.00125 / d * (cos(sin(i) * vec3(1.0, 2.0, 3.0) + 1.0);
-        float b = noise(i + p + bg * 1.731);
-        col += 0.002 * b / length(max(p, vec2(b * p.x * 0.02, p.y)));
-        col = mix(col, vec3(bg * 0.25, bg * 0.137, bg * 0.05), d);
-      }
-      
-      O = vec4(col, 1.0);
-    }`;
+    return stars;
+  };
 
-    // Compile shader
-    const compileShader = (gl, source, type) => {
-      const shader = gl.createShader(type);
-      gl.shaderSource(shader, source);
-      gl.compileShader(shader);
-      
-      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-        console.error(gl.getShaderInfoLog(shader));
-        return null;
-      }
-      return shader;
-    };
-
-    // Create program
-    const vs = compileShader(gl, vsSource, gl.VERTEX_SHADER);
-    const fs = compileShader(gl, fsSource, gl.FRAGMENT_SHADER);
-    
-    const program = gl.createProgram();
-    gl.attachShader(program, vs);
-    gl.attachShader(program, fs);
-    gl.linkProgram(program);
-    
-    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-      console.error(gl.getProgramInfoLog(program));
-      return;
-    }
-    
-    programRef.current = program;
-
-    // Set up geometry
-    const vertices = new Float32Array([-1, 1, -1, -1, 1, 1, 1, -1]);
-    const buffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
-
-    const position = gl.getAttribLocation(program, "position");
-    gl.enableVertexAttribArray(position);
-    gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
-
-    // Get uniform locations
-    program.resolution = gl.getUniformLocation(program, "resolution");
-    program.time = gl.getUniformLocation(program, "time");
-    program.mouse = gl.getUniformLocation(program, "mouse");
-
-    // Handle resize
-    const handleResize = () => {
-      canvas.width = window.innerWidth * window.devicePixelRatio;
-      canvas.height = window.innerHeight * window.devicePixelRatio;
-      gl.viewport(0, 0, canvas.width, canvas.height);
-    };
-    
-    handleResize();
-    window.addEventListener('resize', handleResize);
-
-    // Mouse movement
-    const handleMouseMove = (e) => {
-      mousePosRef.current = [
-        e.clientX * window.devicePixelRatio,
-        (window.innerHeight - e.clientY) * window.devicePixelRatio
-      ];
-    };
-    
-    window.addEventListener('mousemove', handleMouseMove);
-
-    // Animation loop
-    const animate = (time) => {
-      timeRef.current = time * 0.001;
-      
-      gl.clearColor(0, 0, 0, 1);
-      gl.clear(gl.COLOR_BUFFER_BIT);
-      gl.useProgram(programRef.current);
-      gl.uniform2f(programRef.current.resolution, canvas.width, canvas.height);
-      gl.uniform1f(programRef.current.time, timeRef.current);
-      gl.uniform2f(programRef.current.mouse, ...mousePosRef.current);
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-      
-      animationRef.current = requestAnimationFrame(animate);
-    };
-    
-    animationRef.current = requestAnimationFrame(animate);
-
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      window.removeEventListener('mousemove', handleMouseMove);
-      cancelAnimationFrame(animationRef.current);
-      gl.deleteProgram(programRef.current);
-    };
-  }, []);
+  const stars = generateStars();
+  const shootingStars = generateShootingStars();
 
   return (
     <Section
       id="hero"
       customPaddings
       className="pt-[12rem] -mt-[5.25rem] relative overflow-hidden"
+      ref={containerRef}
     >
-      {/* Canvas for WebGL rendering */}
-      <canvas
-        ref={canvasRef}
-        className="absolute inset-0 w-full h-full z-[-10] pointer-events-none"
+      {/* Background gradient */}
+      <div
+        className="absolute inset-0 z-[-20] pointer-events-none"
+        style={{
+          background: "linear-gradient(180deg, #121212 0%, #000000 90%)",
+        }}
       />
 
-      {/* Overlay gradient */}
-      <div
-        className="absolute inset-0 z-[-9] pointer-events-none"
-        style={{
-          background: "linear-gradient(180deg, rgba(18, 18, 18, 0.8) 0%, rgba(0, 0, 0, 0.9) 90%)",
+      {/* Static stars */}
+      {stars.map((star) => (
+        <motion.div
+          key={star.id}
+          className="absolute rounded-full bg-white"
+          style={{
+            width: `${star.size}px`,
+            height: `${star.size}px`,
+            left: `${star.left}%`,
+            top: `${star.top}%`,
+            opacity: star.opacity
+          }}
+          animate={{
+            opacity: [star.opacity * 0.5, star.opacity, star.opacity * 0.5],
+            scale: [1, 1.2, 1]
+          }}
+          transition={{
+            duration: star.duration,
+            repeat: Infinity,
+            delay: star.delay,
+            ease: "easeInOut"
+          }}
+        />
+      ))}
+
+      {/* Shooting stars */}
+      {shootingStars.map((star) => (
+        <motion.div
+          key={star.id}
+          className="absolute bg-gradient-to-r from-blue-400 to-purple-600 rounded-full"
+          style={{
+            width: `${star.size * 4}px`,
+            height: `${star.size}px`,
+            left: `${star.startX}%`,
+            top: `${star.startY}%`,
+            filter: "blur(1px)",
+            opacity: 0.8,
+            rotate: `${star.rotate}deg`
+          }}
+          initial={{
+            x: 0,
+            y: 0,
+            opacity: 0
+          }}
+          animate={{
+            x: `${star.endX - star.startX}vw`,
+            y: `${star.endY - star.startY}vh`,
+            opacity: [0, 0.8, 0],
+            rotate: star.rotate + 360
+          }}
+          transition={{
+            x: {
+              duration: star.duration,
+              repeat: Infinity,
+              repeatDelay: star.delay,
+              ease: "linear"
+            },
+            y: {
+              duration: star.duration * 1.5,
+              repeat: Infinity,
+              repeatDelay: star.delay,
+              ease: "easeInOut"
+            },
+            opacity: {
+              duration: star.duration * 0.3,
+              repeat: Infinity,
+              repeatDelay: star.delay,
+              ease: "easeInOut"
+            },
+            rotate: {
+              duration: star.duration * 2,
+              repeat: Infinity,
+              repeatDelay: star.delay,
+              ease: "linear"
+            }
+          }}
+        />
+      ))}
+
+      {/* Glow effect */}
+      <motion.div 
+        className="absolute inset-0 bg-gradient-to-b from-blue-900/10 to-purple-900/10"
+        animate={{
+          opacity: [0.3, 0.5, 0.3]
+        }}
+        transition={{
+          duration: 10,
+          repeat: Infinity,
+          ease: "easeInOut"
         }}
       />
 
