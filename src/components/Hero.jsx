@@ -1,18 +1,105 @@
-import Typewriter from "typewriter-effect";
-
+import { useRef } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
+import { Points, PointMaterial, TorusKnot } from '@react-three/drei';
+import * as THREE from 'three';
+import Typewriter from 'typewriter-effect';
 import { curve } from "../assets";
-import blackholeVideo from "../assets/hero/blackhole.webm";
 import Button from "./Button";
 import Section from "./Section";
+
+const ParticleField = ({ count = 2500 }) => {
+  const particles = new THREE.BufferGeometry();
+  const posArray = new Float32Array(count * 3);
+
+  for (let i = 0; i < count * 3; i++) {
+    posArray[i] = (Math.random() - 0.5) * 10;
+  }
+
+  particles.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+
+  return (
+    <Points positions={particles.attributes.position.array}>
+      <PointMaterial
+        size={0.03}
+        color="#00aaff"
+        transparent
+        opacity={0.7}
+        blending={THREE.AdditiveBlending}
+        sizeAttenuation={true}
+      />
+    </Points>
+  );
+};
+
+const AnimatedTorus = () => {
+  const torusRef = useRef();
+
+  useFrame(({ clock }) => {
+    torusRef.current.rotation.x = clock.getElapsedTime() * 0.15;
+    torusRef.current.rotation.y = clock.getElapsedTime() * 0.2;
+  });
+
+  return (
+    <TorusKnot
+      ref={torusRef}
+      args={[1, 0.3, 100, 16]}
+    >
+      <meshPhysicalMaterial
+        color="#00aaff"
+        metalness={0.9}
+        roughness={0.1}
+        clearcoat={1}
+        transmission={0.9}
+        ior={1.5}
+        emissive="#00aaff"
+        emissiveIntensity={0.2}
+      />
+    </TorusKnot>
+  );
+};
+
+const ThreeScene = () => {
+  return (
+    <Canvas
+      camera={{ position: [0, 0, 5], fov: 75 }}
+      gl={{ antialias: true, alpha: true }}
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        zIndex: -1,
+        opacity: 0.85
+      }}
+    >
+      <ambientLight intensity={0.3} />
+      <directionalLight
+        position={[1, 1, 1]}
+        intensity={0.8}
+        color="#ffffff"
+      />
+      <pointLight
+        position={[2, 2, 2]}
+        color="#00aaff"
+        intensity={1.5}
+        distance={10}
+      />
+      
+      <ParticleField />
+      <AnimatedTorus />
+    </Canvas>
+  );
+};
 
 const Hero = () => {
   return (
     <Section
       id="hero"
       customPaddings
-      className="pt-[12rem] -mt-[5.25rem] relative overflow-hidden"
+      className="pt-[12rem] -mt-[5.25rem] relative overflow-hidden min-h-screen"
     >
-      {/* Background gradient gelap halus */}
+      {/* Dark background gradient */}
       <div
         className="absolute inset-0 z-[-20] pointer-events-none"
         style={{
@@ -20,50 +107,12 @@ const Hero = () => {
         }}
       />
 
-      {/* Overlay hitam transparan */}
-      <div className="absolute top-0 left-0 w-full h-full bg-black opacity-20 z-[-9]" />
+      {/* Three.js Animation */}
+      <ThreeScene />
 
-      {/* Video blackhole */}
-      <video
-        autoPlay
-        muted
-        loop
-        playsInline
-        className="blackhole-video absolute left-1/2 transform -translate-x-1/2 w-[130vw] h-[130vh] object-cover z-[-10] pointer-events-none
-                   top-[-30%] sm:top-[-30%] md:top-[-20%] lg:top-[-15%] xl:top-[-12%] 2xl:top-[-10%]"
-        style={{
-          filter: "brightness(0.75)",
-        }}
-      >
-        <source src={blackholeVideo} type="video/webm" />
-      </video>
-
-      <style>
-        {`
-          @media (max-width: 640px) {
-            .blackhole-video {
-              top: -50% !important;
-              filter: brightness(0.9) !important;
-            }
-          }
-          @media (min-width: 1920px) {
-            .blackhole-video {
-              top: -12% !important;
-              transform: translateX(-50%) scale(1.1);
-            }
-          }
-          @media (min-width: 2560px) {
-            .blackhole-video {
-              top: -10% !important;
-              transform: translateX(-50%) scale(1.25);
-            }
-          }
-        `}
-      </style>
-
-      {/* Konten utama */}
+      {/* Main content */}
       <div className="container relative z-10">
-        <div className="relative max-w-[62rem] mx-auto text-center mb-[4rem] md:mb-20 lg:mb-[6rem]">
+        <div className="relative max-w-[62rem] mx-auto text-center mb-[4rem] md:mb-20 lg:mb-[6rem] pt-[5rem]">
           <h1 className="h1 mb-6 text-white">
             Empower Your Scripts With
             <br />
@@ -105,7 +154,7 @@ const Hero = () => {
         </div>
       </div>
 
-      {/* Gradient transisi ke hitam pekat */}
+      {/* Bottom gradient transition */}
       <div
         className="absolute bottom-0 left-0 w-full h-[12rem] z-[-5]"
         style={{
